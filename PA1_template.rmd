@@ -1,0 +1,137 @@
+---
+title: "Activity Monitoring Data"
+output: html_document
+---
+
+Download the dataset from the following link and read the data.
+
+library(knitr)
+library(rmarkdown)
+```{r echo=TRUE}
+if(!file.exists("activity.csv")) {
+  download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", "zipfile.zip", method = "curl")
+  unzip("zipfile.zip")
+  }
+data <- read.csv("activity.csv", header = TRUE, sep = ",")
+```
+
+Check the first 5 rows of the dataset.
+```{r echo=TRUE}
+head(data)
+```
+Keep the list of vectors
+```{r echo = TRUE}
+allDates <- unique(as.Date(data$date))
+interval <- unique(data$interval)
+```
+
+###1.1 What is mean total number of steps taken per day?
+```{r echo=TRUE}
+# First split up the data frame for steps by day
+stepsSplit <- split(data$steps, allDates)
+
+# Next find the total number of steps over each day
+totalStepsPerDay <- sapply(stepsSplit, sum, na.rm=TRUE)
+totalStepsPerDay
+```
+###1.2 Make a histogram of the total number of steps taken each day
+```{r echo = TRUE}
+hist(totalStepsPerDay, breaks = 20, col = "antiquewhite")
+```
+
+###1.3 Calculate and report the mean and median of the total number of steps taken per day
+```{r echo = TRUE}
+meanStepsPerDay <- sapply(stepsSplit, mean, na.rm =  TRUE)
+medianStepsPerDay <- sapply(stepsSplit, median, na.rm =  TRUE)
+meanStepsPerDay
+medianStepsPerDay
+```
+
+###2.1 Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+```{r echo = TRUE}
+# First split up the data frame for steps by interval
+stepsSplitInterval <- split(data$steps, interval)
+# Then calculate average steps per interval
+meanStepsPerInterval <- sapply(stepsSplitInterval, mean, na.rm =  TRUE)
+#Time to make a plot!
+plot(interval, meanStepsPerInterval, type = "l", xlab = "Interval", ylab = "Mean Steps Per Interval", main = "Chart of Mean Steps Per Interval")
+```
+
+###2.2 Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r echo = TRUE}
+which.max(meanStepsPerInterval)
+```
+
+###3.1 Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+```{r echo = TRUE}
+isna <- is.na(data$steps)
+sum(isna)
+```
+
+###3.2 Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+```{r echo=TRUE}
+meanStepsPerInterval[is.nan(meanStepsPerInterval)] <- 0 #coerce NAN value into 0
+meanColumn <- rep(meanStepsPerInterval, 288)               #create a column repeating by 288 times
+rawSteps <- data$steps                      
+stepsNA <- is.na(rawSteps)                              #find NA values
+rawSteps[stepsNA] <- meanColumn[stepsNA]                #replace NA value with mean steps per day
+```
+
+###3.3 Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r echo = TRUE}
+dataNew <- data
+dataNew$steps <- rawSteps 
+```
+
+###3.4 Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+```{r echo = TRUE}
+stepsSplitNew <- split(dataNew$steps, allDates)
+totalStepsPerDayNew <- sapply(stepsSplitNew, sum)
+par(mfrow = c(1,1))
+hist(totalStepsPerDay, breaks = 20, col = "antiquewhite")
+hist(totalStepsPerDayNew, breaks = 20, col = "lightgreen")
+meanStepsPerDayNew <- sapply(stepsSplitNew, mean)
+medianStepsPerDayNew <- sapply(stepsSplitNew, median)
+
+meanStepsPerDay
+meanStepsPerDayNew
+medianStepsPerDay
+medianStepsPerDayNew
+```
+
+###4.1 Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+```{r echo = TRUE}
+weekend <- c("Saturday", "Sunday")              #create a vector weekend for later validation
+dataNew$isweekend <- weekdays(as.POSIXlt(as.character(dataNew$date))) %in% weekend  #check if the date belongs to weekend
+dataNew$isweekend <- as.numeric(dataNew$isweekend) #'1' means weekend '0' means weekday
+```
+
+###4.2 Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+```{r echo = TRUE}
+dataNew_weekday <- dataNew[which(dataNew$isweekend == 0),] #create dataset only consist weekday data
+dataNew_weekend <- dataNew[which(dataNew$isweekend == 1),] #create dataset only consist weekend data
+
+stepsSplitWeekday <- split(dataNew_weekday$steps, dataNew_weekday$interval)
+meanStepsPerIntervalWeekday <- sapply(stepsSplitWeekday, mean)
+
+stepsSplitWeekend <- split(dataNew_weekend$steps, dataNew_weekend$interval)
+meanStepsPerIntervalWeekend <- sapply(stepsSplitWeekend, mean)
+
+par(mfrow = c(2,1), mai = c(0.5,0.4,0.25,0.25))
+plot(unique(dataNew_weekday$interval), meanStepsPerIntervalWeekday, type = "l", main = "Weekday", xlab = "", ylab = "", col = "green") 
+plot(unique(dataNew_weekend$interval), meanStepsPerIntervalWeekend, type = "l", main = "Weekend", xlab = "Interval", ylab = "",  col = "blue") 
+```
+
+Average steps of Weekday clearly become flattter than Weekend after the 1000th interval.
+
+
+render("PA1_template.rmd")
+
+
+
+
+
+
+
+
+
